@@ -1,6 +1,7 @@
 package org.jenkins_ci.plugins.xdzmkus.openalm.http;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
@@ -11,6 +12,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Collections;
 import java.util.logging.Logger;
 
+import javax.annotation.CheckForNull;
 import javax.net.ssl.SSLContext;
 
 import org.apache.commons.lang.StringUtils;
@@ -30,6 +32,7 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
+import org.apache.http.message.AbstractHttpMessage;
 import org.apache.http.ssl.SSLContexts;
 import org.apache.http.util.EntityUtils;
 import org.jenkins_ci.plugins.xdzmkus.openalm.OALMGlobalConfiguration;
@@ -38,6 +41,7 @@ import hudson.ProxyConfiguration;
 import hudson.Util;
 import hudson.security.ACL;
 import jenkins.model.Jenkins;
+import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
 
 public class OALMClient
@@ -56,7 +60,7 @@ public class OALMClient
 	public String credentialsId;
 
 	private CloseableHttpClient httpclient;
-	
+
 	public OALMClient(String url, String credentialsId)
 	{
 		this.url = Util.fixNull(url).trim();
@@ -66,111 +70,146 @@ public class OALMClient
 
 	public void testConnection() throws URISyntaxException, IOException
 	{
-        URI oalmUrl = new URI(url);
-        
-        try
-        {
-            HttpGet httpGet = new HttpGet(oalmUrl);
+		URI oalmUrl = new URI(url);
 
-            if (credentialsId != null)
-            {
-            	com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials credentials =
-	            		  com.cloudbees.plugins.credentials.CredentialsMatchers.firstOrNull(
-	            			  com.cloudbees.plugins.credentials.CredentialsProvider.lookupCredentials(
-	            					  com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials.class,
-	                          Jenkins.get(),
-	                          ACL.SYSTEM,
-	                          Collections.emptyList()),
-	                      com.cloudbees.plugins.credentials.CredentialsMatchers.withId(credentialsId));
-	              if (credentials != null)
-	              {
-	                String encoded =  URLEncoder.encode(credentials.getUsername() + ":" + credentials.getPassword().getPlainText(),
-	                		StandardCharsets.UTF_8.displayName());
-	                httpGet.setHeader(HttpHeaders.AUTHORIZATION, "Basic " + encoded);
-	              }
-            }
-            
-            httpGet.addHeader("Content-Type", "application/json");
+		try
+		{
+			HttpGet httpGet = new HttpGet(oalmUrl);
 
-            LOGGER.info("Executing request " + httpGet.getRequestLine());
+			fillRequestHeaders(httpGet);
 
-            // Create a custom response handler
-            ResponseHandler<String> responseHandler = new ResponseHandler<String>()
-            {
-                @Override
-                public String handleResponse(final HttpResponse response) throws ClientProtocolException, IOException
-                {
-                    int status = response.getStatusLine().getStatusCode();
-                    if (status >= 200 && status < 300)
-                    {
-                        HttpEntity entity = response.getEntity();
-                        return entity != null ? EntityUtils.toString(entity) : null;
-                    }
-                    else
-                    {
-                        throw new IOException("Unexpected response status: " + status);
-                    }
-                }
-            };
- 
-            JSONObject responseBody = JSONObject.fromObject(httpclient.execute(httpGet, responseHandler));
-            
-            LOGGER.info("----------------------------------------");
-            LOGGER.info(responseBody.toString());
-        }
-        finally
-        {
-            httpclient.close();
-        }
+			LOGGER.info("Executing request " + httpGet.getRequestLine());
+
+			httpclient.execute(httpGet, new OALMResponseHandler());
+		}
+		finally
+		{
+			httpclient.close();
+		}
+	}
+
+	public @CheckForNull JSONObject retrieveArtifact(String artifactID) throws URISyntaxException, IOException
+	{
+		String artifact = Util.fixEmptyAndTrim(artifactID);
+		
+		if (artifact == null) return null;
+		
+		URI oalmUrl = new URI(url + "/api/artifacts/" + artifact);
+
+		try
+		{
+			HttpGet httpGet = new HttpGet(oalmUrl);
+			
+			fillRequestHeaders(httpGet);
+
+			LOGGER.info("Executing request " + httpGet.getRequestLine());
+
+			return JSONObject.fromObject(httpclient.execute(httpGet, new OALMResponseHandler()));
+		}
+		catch (JSONException e)
+		{
+			LOGGER.warning(e.getLocalizedMessage());
+			return null;
+		}
+		finally
+		{
+			httpclient.close();
+		}
 	}
 	
-    private CloseableHttpClient createProxyHttpClient()
+	protected CloseableHttpClient createProxyHttpClient()
 	{
 		HttpClientBuilder httpClientBuilder = HttpClients.custom();
-		
-        if(Jenkins.get() != null)
-        {
-            ProxyConfiguration proxyConfiguration = Jenkins.get().proxy;
-            if (proxyConfiguration != null)
-            {
-                CredentialsProvider credsProvider = new BasicCredentialsProvider();
-            	HttpHost proxy = new HttpHost(proxyConfiguration.name, proxyConfiguration.port);
-            	
-                if (StringUtils.isNotEmpty(proxyConfiguration.getUserName()))
-                {
-                    credsProvider.setCredentials(
-                            	new AuthScope(proxyConfiguration.name, proxyConfiguration.port),
-                            	new UsernamePasswordCredentials(proxyConfiguration.getUserName(), proxyConfiguration.getPassword()));
-                }
-                
-                httpClientBuilder.setProxy(proxy).setDefaultCredentialsProvider(credsProvider);
-           }
-        }
-        
-        if (OALMGlobalConfiguration.get().getTrustCA())
-        {
+
+		if(Jenkins.get() != null)
+		{
+			ProxyConfiguration proxyConfiguration = Jenkins.get().proxy;
+			if (proxyConfiguration != null)
+			{
+				CredentialsProvider credsProvider = new BasicCredentialsProvider();
+				HttpHost proxy = new HttpHost(proxyConfiguration.name, proxyConfiguration.port);
+
+				if (StringUtils.isNotEmpty(proxyConfiguration.getUserName()))
+				{
+					credsProvider.setCredentials(
+							new AuthScope(proxyConfiguration.name, proxyConfiguration.port),
+							new UsernamePasswordCredentials(proxyConfiguration.getUserName(), proxyConfiguration.getPassword()));
+				}
+
+				httpClientBuilder.setProxy(proxy).setDefaultCredentialsProvider(credsProvider);
+			}
+		}
+
+		if (OALMGlobalConfiguration.get().getTrustCA())
+		{
 			try
 			{
 				SSLContext sslcontext = SSLContexts.custom()
-				        .loadTrustMaterial(new TrustSelfSignedStrategy())
-				        .build();
+						.loadTrustMaterial(new TrustSelfSignedStrategy())
+						.build();
 
 				// Allow TLSv1 protocol only
-		        SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(
-		                sslcontext,
-		                new String[] { "TLSv1" },
-		                null,
-		                SSLConnectionSocketFactory.getDefaultHostnameVerifier());
-		
-		        httpClientBuilder.setSSLSocketFactory(sslsf);
+				SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(
+						sslcontext,
+						new String[] { "TLSv1" },
+						null,
+						SSLConnectionSocketFactory.getDefaultHostnameVerifier());
+
+				httpClientBuilder.setSSLSocketFactory(sslsf);
 			}
 			catch (KeyManagementException | NoSuchAlgorithmException | KeyStoreException e)
 			{
 				LOGGER.warning(e.getLocalizedMessage());
 			}
-        }
-        
-        return httpClientBuilder.build();
+		}
+
+		return httpClientBuilder.build();
 	}
 
+	protected void fillRequestHeaders(AbstractHttpMessage request)
+	{
+		request.addHeader("Content-Type", "application/json");
+
+		if (credentialsId != null)
+		{
+			com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials credentials =
+					com.cloudbees.plugins.credentials.CredentialsMatchers.firstOrNull(
+							com.cloudbees.plugins.credentials.CredentialsProvider.lookupCredentials(
+									com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials.class,
+									Jenkins.get(),
+									ACL.SYSTEM,
+									Collections.emptyList()),
+							com.cloudbees.plugins.credentials.CredentialsMatchers.withId(credentialsId));
+			if (credentials != null)
+			{
+				try
+				{
+					String encoded = URLEncoder.encode(credentials.getUsername() + ":" + credentials.getPassword().getPlainText(), StandardCharsets.UTF_8.displayName());
+					request.setHeader(HttpHeaders.AUTHORIZATION, "Basic " + encoded);
+				}
+				catch (UnsupportedEncodingException e)
+				{
+					LOGGER.warning(e.getLocalizedMessage());
+				}
+			}
+		}
+	}
+
+	public static class OALMResponseHandler implements ResponseHandler<String>
+	{
+		@Override
+		public String handleResponse(HttpResponse response) throws ClientProtocolException, IOException
+		{
+			int status = response.getStatusLine().getStatusCode();
+			if (status >= 200 && status < 300)
+			{
+				HttpEntity entity = response.getEntity();
+				return entity != null ? EntityUtils.toString(entity) : null;
+			}
+			else
+			{
+				throw new IOException("Unexpected response status: " + status);
+			}
+		}
+	}
 }
