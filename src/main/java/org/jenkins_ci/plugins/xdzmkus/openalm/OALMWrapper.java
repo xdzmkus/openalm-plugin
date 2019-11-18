@@ -5,9 +5,8 @@ package org.jenkins_ci.plugins.xdzmkus.openalm;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 import org.jenkins_ci.plugins.xdzmkus.openalm.http.OALMClient;
@@ -35,18 +34,18 @@ public class OALMWrapper extends SimpleBuildWrapper
 {
 	private static final Logger LOGGER = Logger.getLogger(OALMWrapper.class.getName());
 
-	public String siteName;
+	public final String siteName;
 	
-	public String artifactID;
+	public final String artifactID;
 	
-    public List<OALMArtifactIdPattern> artifactIdPatterns = new ArrayList<OALMArtifactIdPattern>();
+    public final List<OALMArtifactIdPattern> artifactIdPatterns;
 
     @DataBoundConstructor
 	public OALMWrapper(String siteName, String artifactID, List<OALMArtifactIdPattern> artifactIdPatterns)
 	{
 		this.siteName = siteName;
 		this.artifactID = Util.fixEmptyAndTrim(artifactID);
-		this.artifactIdPatterns = artifactIdPatterns;
+		this.artifactIdPatterns = artifactIdPatterns == null ? Collections.emptyList() : artifactIdPatterns;
 	}
 
 	/* (non-Javadoc)
@@ -56,7 +55,7 @@ public class OALMWrapper extends SimpleBuildWrapper
 	public void setUp(Context context, Run<?, ?> build, FilePath workspace, Launcher launcher, TaskListener listener,
 			EnvVars initialEnvironment) throws IOException, InterruptedException
 	{
-		LOGGER.info("OALM check....");
+		listener.getLogger().println("Retrieve OpenALM artifact details...");
 		
 		OALMClient client = null;
 		
