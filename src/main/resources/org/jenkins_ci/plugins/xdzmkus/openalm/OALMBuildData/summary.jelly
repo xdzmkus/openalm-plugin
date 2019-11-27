@@ -22,18 +22,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 -->
 <?jelly escape-by-default='true'?>
-<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
-
-	<f:section title="OpenALM">
-		<f:entry title="${%Trust self-signed certificates}" field="trustCA"
-				description="Check if we should trust to self signed certificates">
-			<f:checkbox />
-		</f:entry>
-
-		<f:entry title="${%OpenALM Sites}" description="">
-			<f:repeatableProperty field="sites"/>
-		</f:entry>
-
-	</f:section>
-
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler"
+	xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson"
+	xmlns:f="/lib/form" xmlns:i="jelly:fmt">
+	<t:summary icon="/plugin/openalm/icons/tuleap-logo.png">
+		<b>${%OpenALM Artifact}</b>: <a href="${it.url}" target="_new">${it.url}</a>
+	</t:summary>
 </j:jelly>

@@ -22,45 +22,55 @@ SOFTWARE.
 */
 package org.jenkins_ci.plugins.xdzmkus.openalm;
 
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import javax.annotation.CheckForNull;
 
-import org.kohsuke.stapler.DataBoundConstructor;
+import org.jenkins_ci.plugins.xdzmkus.openalm.api.OALMArtifact;
 
-import hudson.Extension;
-import hudson.model.AbstractDescribableImpl;
-import hudson.model.Descriptor;
+import hudson.Util;
+import hudson.model.Run;
+import jenkins.model.RunAction2;
 
-public class OALMArtifactIdPattern extends AbstractDescribableImpl<OALMArtifactIdPattern>
+public class OALMBuildData implements RunAction2
 {
-	private Pattern pattern;
+	private transient @CheckForNull Run<?, ?> build;
+
+	public final String url;
+	public final OALMArtifact artifact;
 	
-	@DataBoundConstructor
-	public OALMArtifactIdPattern(String pattern)
+	public OALMBuildData(OALMArtifact oalmArtifact, String url)
 	{
-		this.pattern = Pattern.compile(pattern);
+		this.url = Util.fixNull(url);
+		this.artifact = oalmArtifact;
 	}
 
-	public String getPattern()
+	@Override
+	public String getIconFileName()
 	{
-		return pattern.pattern();
+        return jenkins.model.Jenkins.RESOURCE_PATH+"/plugin/openalm/icons/tuleap-32x32.png";
 	}
-	
-	public String applyPattern(String artifactID)
-	{
-		Matcher matcher = pattern.matcher(artifactID);
-		return matcher.find() ? matcher.group() : artifactID;
-	}
-	
-	@Extension
-    public static class DescriptorImpl extends Descriptor<OALMArtifactIdPattern>
-	{
-		@Override
-		public String getDisplayName()
-		{
-			return "OpenALM artifactID pattern";
-		}
 
+	@Override
+	public String getDisplayName()
+	{
+		return "OpenALM artifact";
 	}
-	
+
+	@Override
+	public String getUrlName()
+	{
+		return "openalm";
+	}
+
+	@Override
+	public void onAttached(Run<?, ?> run)
+	{
+		this.build = run;
+	}
+
+	@Override
+	public void onLoad(Run<?, ?> run)
+	{
+		this.build = run;
+	}
+
 }

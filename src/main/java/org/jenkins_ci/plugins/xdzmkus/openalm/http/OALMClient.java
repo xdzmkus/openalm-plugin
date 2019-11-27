@@ -1,11 +1,30 @@
+/*MIT License
+
+Copyright (c) 2019 Dzmitry Kushniaruk
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
 package org.jenkins_ci.plugins.xdzmkus.openalm.http;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -17,7 +36,6 @@ import javax.net.ssl.SSLContext;
 
 import org.apache.commons.lang.StringUtils;
 import org.apache.http.HttpEntity;
-import org.apache.http.HttpHeaders;
 import org.apache.http.HttpHost;
 import org.apache.http.HttpResponse;
 import org.apache.http.auth.AuthScope;
@@ -32,7 +50,6 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.message.AbstractHttpMessage;
 import org.apache.http.ssl.SSLContexts;
 import org.apache.http.util.EntityUtils;
 import org.jenkins_ci.plugins.xdzmkus.openalm.OALMGlobalConfiguration;
@@ -61,7 +78,7 @@ public class OALMClient
 
 	private CloseableHttpClient httpclient;
 
-	public OALMClient(String url, String credentialsId)
+	public OALMClient(String url, String credentialsId) throws URISyntaxException
 	{
 		this.url = Util.fixNull(url).trim();
 		this.credentialsId = credentialsId;
@@ -75,8 +92,6 @@ public class OALMClient
 		try
 		{
 			HttpGet httpGet = new HttpGet(oalmUrl);
-
-			fillRequestHeaders(httpGet);
 
 			LOGGER.info("Executing request " + httpGet.getRequestLine());
 
@@ -99,12 +114,13 @@ public class OALMClient
 		try
 		{
 			HttpGet httpGet = new HttpGet(oalmUrl);
+			httpGet.addHeader("Content-Type", "application/json");
 			
-			fillRequestHeaders(httpGet);
-
 			LOGGER.info("Executing request " + httpGet.getRequestLine());
+			
+			String out = httpclient.execute(httpGet, new OALMResponseHandler());
 
-			return JSONObject.fromObject(httpclient.execute(httpGet, new OALMResponseHandler()));
+			return JSONObject.fromObject(out);
 		}
 		catch (JSONException e)
 		{
@@ -117,16 +133,18 @@ public class OALMClient
 		}
 	}
 	
-	protected CloseableHttpClient createProxyHttpClient()
+	protected CloseableHttpClient createProxyHttpClient() throws URISyntaxException
 	{
+		URI oalmUrl = new URI(url);
+				
 		HttpClientBuilder httpClientBuilder = HttpClients.custom();
+		CredentialsProvider credsProvider = new BasicCredentialsProvider();
 
 		if(Jenkins.get() != null)
 		{
 			ProxyConfiguration proxyConfiguration = Jenkins.get().proxy;
 			if (proxyConfiguration != null)
 			{
-				CredentialsProvider credsProvider = new BasicCredentialsProvider();
 				HttpHost proxy = new HttpHost(proxyConfiguration.name, proxyConfiguration.port);
 
 				if (StringUtils.isNotEmpty(proxyConfiguration.getUserName()))
@@ -136,7 +154,7 @@ public class OALMClient
 							new UsernamePasswordCredentials(proxyConfiguration.getUserName(), proxyConfiguration.getPassword()));
 				}
 
-				httpClientBuilder.setProxy(proxy).setDefaultCredentialsProvider(credsProvider);
+				httpClientBuilder.setProxy(proxy);
 			}
 		}
 
@@ -162,14 +180,7 @@ public class OALMClient
 				LOGGER.warning(e.getLocalizedMessage());
 			}
 		}
-
-		return httpClientBuilder.build();
-	}
-
-	protected void fillRequestHeaders(AbstractHttpMessage request)
-	{
-		request.addHeader("Content-Type", "application/json");
-
+		
 		if (credentialsId != null)
 		{
 			com.cloudbees.plugins.credentials.common.UsernamePasswordCredentials credentials =
@@ -182,17 +193,14 @@ public class OALMClient
 							com.cloudbees.plugins.credentials.CredentialsMatchers.withId(credentialsId));
 			if (credentials != null)
 			{
-				try
-				{
-					String encoded = URLEncoder.encode(credentials.getUsername() + ":" + credentials.getPassword().getPlainText(), StandardCharsets.UTF_8.displayName());
-					request.setHeader(HttpHeaders.AUTHORIZATION, "Basic " + encoded);
-				}
-				catch (UnsupportedEncodingException e)
-				{
-					LOGGER.warning(e.getLocalizedMessage());
-				}
+				credsProvider.setCredentials(
+						new AuthScope(oalmUrl.getHost(), oalmUrl.getPort()),
+						new UsernamePasswordCredentials(credentials.getUsername(), credentials.getPassword().getPlainText())
+				);
 			}
 		}
+
+		return httpClientBuilder.setDefaultCredentialsProvider(credsProvider).build();
 	}
 
 	public static class OALMResponseHandler implements ResponseHandler<String>

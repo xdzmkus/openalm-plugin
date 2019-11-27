@@ -1,0 +1,55 @@
+<!--
+The MIT License
+
+Copyright (c) 2019, Dzmitry Kushniaruk
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+-->
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:l="/lib/layout" xmlns:t="/lib/hudson">
+    <l:layout title="${it.displayName}">
+        <j:invokeStatic var="currentThread" className="java.lang.Thread" method="currentThread"/>
+        <j:invoke var="buildClass" on="${currentThread.contextClassLoader}" method="loadClass">
+            <j:arg value="hudson.model.AbstractBuild"/>
+        </j:invoke>
+        <j:set var="build" value="${request.findAncestorObject(buildClass)}"/>
+        <st:include page="sidepanel.jelly" it="${build}"/>
+        <l:main-panel>
+            <h1>${%Build} #${build.number}</h1>
+            <h2>${%OpenALM Artifact}</h2>
+            <a href="${it.url}" target="_new">${it.url}</a>
+            <j:choose>
+                <j:when test="${build.isBuilding()}">
+                    ${%The job is building. Waiting for the end of the build to display environment variables}.
+                </j:when>
+                <j:otherwise>
+                    <j:choose>
+         				<j:set var="envs" value="${it.artifact.getEnvVars(it.artifact.PREFIX)}"/>
+                        <j:when test="${envs.isEmpty()}">
+                            ${%No environment variables were been set}.
+                        </j:when>
+                        <j:otherwise>
+                            <t:propertyTable items="${envs}" />
+                        </j:otherwise>
+                    </j:choose>
+                </j:otherwise>
+            </j:choose>
+        </l:main-panel>
+    </l:layout>
+</j:jelly>
