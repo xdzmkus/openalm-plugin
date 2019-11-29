@@ -39,7 +39,8 @@ import net.sf.json.JSONObject;
 @Extension
 public class OALMGlobalConfiguration extends GlobalConfiguration
 {
-	private boolean trustCA = false;;
+	private boolean trustCA = false;
+	private boolean bypassProxy = false;
 	private List<OALMSite> sites = Collections.emptyList();
 
 	public OALMGlobalConfiguration()
@@ -79,7 +80,19 @@ public class OALMGlobalConfiguration extends GlobalConfiguration
         save();
     }
 
-    @Nonnull
+	public boolean getBypassProxy()
+	{
+		return bypassProxy;
+	}
+
+	@DataBoundSetter
+	public void setBypassProxy(boolean bypassProxy)
+	{
+		this.bypassProxy = bypassProxy;
+		save();
+	}
+
+	@Nonnull
     public static OALMGlobalConfiguration get()
     {
         return (OALMGlobalConfiguration) Jenkins.get().getDescriptorOrDie(OALMGlobalConfiguration.class);

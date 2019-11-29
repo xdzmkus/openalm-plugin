@@ -30,6 +30,11 @@ THE SOFTWARE.
 			<f:checkbox />
 		</f:entry>
 
+		<f:entry title="${%Bypass proxy}" field="bypassProxy"
+				description="Check if we should not use proxy">
+			<f:checkbox />
+		</f:entry>
+
 		<f:entry title="${%OpenALM Sites}" description="">
 			<f:repeatableProperty field="sites"/>
 		</f:entry>

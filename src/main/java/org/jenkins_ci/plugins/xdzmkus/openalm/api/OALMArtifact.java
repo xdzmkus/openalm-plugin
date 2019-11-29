@@ -46,26 +46,37 @@ public class OALMArtifact
 	private String title;
 	private List<OALMUser> assignees;
 	
-	public OALMArtifact(JSONObject json)
+    private final String prefix;
+
+    public OALMArtifact(JSONObject json, String prefix)
 	{
-		if (json == null) return;
+    	this.prefix = Util.fixNull(prefix) + "ARTIFACT_";
+
+    	if (json == null) return;
 		
     	if (json.has("id")) id = json.getString("id");
     	if (json.has("uri")) uri = json.getString("uri");
     	if (json.has("xref")) xref = json.getString("xref");
-    	if (json.has("tracker")) tracker = new OALMTracker(json.getJSONObject("tracker"));
-    	if (json.has("project")) project = new OALMProject(json.getJSONObject("project"));
+    	if (json.has("tracker")) tracker = new OALMTracker(json.getJSONObject("tracker"), this.prefix);
+    	if (json.has("project")) project = new OALMProject(json.getJSONObject("project"), this.prefix);
     	if (json.has("html_url")) html_url = json.getString("html_url");
-    	if (json.has("submitted_by_user")) submitted_by_user = new OALMUser(json.getJSONObject("submitted_by_user"));
+    	if (json.has("submitted_by_user")) submitted_by_user = new OALMUser(json.getJSONObject("submitted_by_user"), this.prefix + "SUBMITTED_" );
     	if (json.has("status")) status = json.getString("status");
     	if (json.has("title")) title = json.getString("title");
     	if (json.has("assignees"))
     	{
     		assignees = new ArrayList<OALMUser>();
     		JSONArray users = json.getJSONArray("assignees");
-    		for (int i = 0; i < users.size(); i++)
+    		if (users.size() == 1)
     		{
-    			assignees.add(new OALMUser(users.getJSONObject(i)));
+    			assignees.add(new OALMUser(users.getJSONObject(0), this.prefix + "ASSIGNED_"));
+    		}
+    		else
+    		{
+	    		for (int i = 0; i < users.size(); i++)
+	    		{
+	    			assignees.add(new OALMUser(users.getJSONObject(0), this.prefix + i + "_ASSIGNED_"));
+	    		}
     		}
     	}
 	}
@@ -170,43 +181,45 @@ public class OALMArtifact
 		this.assignees = assignees;
 	}
 	
-	public Map<String, String> getEnvVars(String prefix)
+	public Map<String, String> getEnvVars()
 	{
-		String prfx = Util.fixNull(prefix);
-		
 		HashMap<String, String> envMap = new HashMap<String, String>();
 	
-		envMap.put(prfx + "ARTIFACT_ID", Util.fixNull(getId()));		
-		envMap.put(prfx + "ARTIFACT_URL", Util.fixNull(getHtml_url()));		
-		envMap.put(prfx + "ARTIFACT_URI", Util.fixNull(getUri()));		
-		envMap.put(prfx + "ARTIFACT_XREF", Util.fixNull(getXref()));		
-		envMap.put(prfx + "ARTIFACT_STATUS", Util.fixNull(getStatus()));		
+		envMap.put(prefix + "ID", Util.fixNull(getId()));		
+		envMap.put(prefix + "URL", Util.fixNull(getHtml_url()));		
+		envMap.put(prefix + "URI", Util.fixNull(getUri()));		
+		envMap.put(prefix + "XREF", Util.fixNull(getXref()));		
+		envMap.put(prefix + "STATUS", Util.fixNull(getStatus()));		
+		envMap.put(prefix + "TITLE", Util.fixNull(getTitle()));		
 		
 		OALMTracker tracker = getTracker();
 		if(tracker != null)
 		{
-			envMap.putAll(tracker.getEnvVars(prfx + "ARTIFACT_"));
+			envMap.putAll(tracker.getEnvVars());
 		}
 		
 		OALMProject project = getProject();
 		if(project != null)
 		{
-			envMap.putAll(project.getEnvVars(prfx + "ARTIFACT_"));
+			envMap.putAll(project.getEnvVars());
 		}
 
 		OALMUser submitted = getSubmitted_by_user();
 		if(submitted != null)
 		{
-			envMap.putAll(submitted.getEnvVars(prfx + "ARTIFACT_SUBMITTED_"));
+			envMap.putAll(submitted.getEnvVars());
 		}
 		
 		List<OALMUser> assignees = getAssignees();
-		if(assignees != null && !assignees.isEmpty())
+		if(assignees != null)
 		{
-			OALMUser assigner = assignees.get(0);
-			if(assigner != null)
+			for (int i = 0; i < assignees.size(); i++)
 			{
-				envMap.putAll(assigner.getEnvVars(prfx + "ARTIFACT_ASSIGNED_"));
+				OALMUser assigner = assignees.get(i);
+				if(assigner != null)
+				{
+					envMap.putAll(assigner.getEnvVars());
+				}
 			}
 		}
 

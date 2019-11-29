@@ -37,14 +37,18 @@ public class OALMTracker
     private String label;
     private OALMProject project;
     
-    public OALMTracker(JSONObject json)
-    {
-		if (json == null) return;
+    private final String prefix;
+
+    public OALMTracker(JSONObject json, String prefix)
+	{
+    	this.prefix = Util.fixNull(prefix) + "TRACKER_";
+    	
+    	if (json == null) return;
 
 		if (json.has("id")) id = json.getString("id");
     	if (json.has("uri")) uri = json.getString("uri");
     	if (json.has("label")) label = json.getString("label");
-    	if (json.has("project")) project = new OALMProject(json.getJSONObject("project"));
+    	if (json.has("project")) project = new OALMProject(json.getJSONObject("project"), this.prefix );
     }
     
     public @CheckForNull String getId()
@@ -87,20 +91,18 @@ public class OALMTracker
 		this.project = project;
 	}
 	
-	public Map<String, String> getEnvVars(String prefix)
+	public Map<String, String> getEnvVars()
 	{
-		String prfx = Util.fixNull(prefix);
-		
 		HashMap<String, String> envMap = new HashMap<String, String>();
 	
-		envMap.put(prfx + "TRACKER_ID", Util.fixNull(getId()));
-		envMap.put(prfx + "TRACKER_LABEL", Util.fixNull(getLabel()));
-		envMap.put(prfx + "TRACKER_URI", Util.fixNull(getUri()));
+		envMap.put(prefix + "ID", Util.fixNull(getId()));
+		envMap.put(prefix + "LABEL", Util.fixNull(getLabel()));
+		envMap.put(prefix + "URI", Util.fixNull(getUri()));
 		
 		OALMProject project = getProject();
 		if(project != null)
 		{
-			envMap.putAll(project.getEnvVars(prfx + "TRACKER_"));
+			envMap.putAll(project.getEnvVars());
 		}
 
 		return envMap;

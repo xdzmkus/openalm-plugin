@@ -36,9 +36,13 @@ public class OALMProject
     private String uri;
     private String label;
 
-    public OALMProject(JSONObject json)
+    private final String prefix;
+
+    public OALMProject(JSONObject json, String prefix)
     {
-		if (json == null) return;
+    	this.prefix = Util.fixNull(prefix) + "PROJECT_";
+
+    	if (json == null) return;
 
 		if (json.has("id")) id = json.getString("id");
     	if (json.has("uri")) uri = json.getString("uri");
@@ -75,15 +79,13 @@ public class OALMProject
         this.label = label;
     }
     
-	public Map<String, String> getEnvVars(String prefix)
+	public Map<String, String> getEnvVars()
 	{
-		String prfx = Util.fixNull(prefix);
-		
 		HashMap<String, String> envMap = new HashMap<String, String>();
 	
-		envMap.put(prfx + "PROJECT_ID", Util.fixNull(getId()));		
-		envMap.put(prfx + "PROJECT_LABEL", Util.fixNull(getLabel()));		
-		envMap.put(prfx + "PROJECT_URI", Util.fixNull(getUri()));		
+		envMap.put(prefix + "ID", Util.fixNull(getId()));		
+		envMap.put(prefix + "LABEL", Util.fixNull(getLabel()));		
+		envMap.put(prefix + "URI", Util.fixNull(getUri()));		
 
 		return envMap;
 	}

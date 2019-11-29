@@ -39,9 +39,13 @@ public class OALMUser
     private String display_name;    
     private String username;
     
-    public OALMUser(JSONObject json)
+    private final String prefix;
+    
+    public OALMUser(JSONObject json, String prefix)
 	{
-		if (json == null) return;
+    	this.prefix = Util.fixNull(prefix) + "USER_";
+    	
+    	if (json == null) return;
 
 		if (json.has("id")) id = json.getString("id");
     	if (json.has("uri")) uri = json.getString("uri");
@@ -111,16 +115,14 @@ public class OALMUser
 		this.username = username;
 	}
 
-	public Map<String, String> getEnvVars(String prefix)
+	public Map<String, String> getEnvVars()
 	{
-		String prfx = Util.fixNull(prefix);
-		
 		HashMap<String, String> envMap = new HashMap<String, String>();
 	
-		envMap.put(prfx + "USER_ID", Util.fixNull(getId()));		
-		envMap.put(prfx + "USER_REALNAME", Util.fixNull(getReal_name()));		
-		envMap.put(prfx + "USER_DISPLAYNAME", Util.fixNull(getDisplay_name()));		
-		envMap.put(prfx + "USER_USERNAME", Util.fixNull(getUsername()));		
+		envMap.put(prefix + "ID", Util.fixNull(getId()));		
+		envMap.put(prefix + "REALNAME", Util.fixNull(getReal_name()));		
+		envMap.put(prefix + "DISPLAYNAME", Util.fixNull(getDisplay_name()));		
+		envMap.put(prefix + "USERNAME", Util.fixNull(getUsername()));		
 
 		return envMap;
 	}

@@ -40,7 +40,7 @@ THE SOFTWARE.
                 </j:when>
                 <j:otherwise>
                     <j:choose>
-         				<j:set var="envs" value="${it.artifact.getEnvVars(it.artifact.PREFIX)}"/>
+         				<j:set var="envs" value="${it.artifact.getEnvVars()}"/>
                         <j:when test="${envs.isEmpty()}">
                             ${%No environment variables were been set}.
                         </j:when>

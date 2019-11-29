@@ -122,9 +122,10 @@ public class OALMWrapper extends SimpleBuildWrapper
 			}
 
 			JSONObject json = client.retrieveArtifact(artifact);
-			if (printReply) listener.getLogger().println(json);
+
+			if (printReply && json != null) listener.getLogger().println(json);
 			
-			OALMArtifact oalmArtifact = new OALMArtifact(json);
+			OALMArtifact oalmArtifact = new OALMArtifact(json, PREFIX);
 			
 			injectEnvVars(context, oalmArtifact);
 			
@@ -144,7 +145,7 @@ public class OALMWrapper extends SimpleBuildWrapper
 
 	private void injectEnvVars(Context context, OALMArtifact oalmArtifact)
 	{
-		Map<String, String> envMap = oalmArtifact.getEnvVars(PREFIX);
+		Map<String, String> envMap = oalmArtifact.getEnvVars();
 		
 		for (Entry<String, String> i : envMap.entrySet())
 		{

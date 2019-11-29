@@ -66,8 +66,8 @@ public class OALMClient
 	private static final Logger LOGGER = Logger.getLogger(OALMClient.class.getName());
 
 	/**
-	 * URL of OpenALM for Jenkins access, like <tt>http://openalm.yoursite.org/</tt>.
-	 * Mandatory. Normalized to end with '/'
+	 * URL of OpenALM for Jenkins access, like <tt>http://openalm.yoursite.org</tt>.
+	 * Mandatory.
 	 */
 	public String url;
 
@@ -82,7 +82,7 @@ public class OALMClient
 	{
 		this.url = Util.fixNull(url).trim();
 		this.credentialsId = credentialsId;
-		this.httpclient = createProxyHttpClient();
+		this.httpclient = createHttpClient();
 	}
 
 	public void testConnection() throws URISyntaxException, IOException
@@ -133,14 +133,14 @@ public class OALMClient
 		}
 	}
 	
-	protected CloseableHttpClient createProxyHttpClient() throws URISyntaxException
+	protected CloseableHttpClient createHttpClient() throws URISyntaxException
 	{
 		URI oalmUrl = new URI(url);
 				
 		HttpClientBuilder httpClientBuilder = HttpClients.custom();
 		CredentialsProvider credsProvider = new BasicCredentialsProvider();
 
-		if(Jenkins.get() != null)
+		if(!OALMGlobalConfiguration.get().getBypassProxy() && Jenkins.get() != null)
 		{
 			ProxyConfiguration proxyConfiguration = Jenkins.get().proxy;
 			if (proxyConfiguration != null)
@@ -216,6 +216,7 @@ public class OALMClient
 			}
 			else
 			{
+				LOGGER.warning("Unexpected response: " + response);
 				throw new IOException("Unexpected response status: " + status);
 			}
 		}
