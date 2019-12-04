@@ -28,7 +28,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.logging.Level;
 import java.util.logging.Logger;
+
+import javax.annotation.CheckForNull;
 
 import org.jenkins_ci.plugins.xdzmkus.openalm.api.OALMArtifact;
 import org.jenkins_ci.plugins.xdzmkus.openalm.http.OALMClient;
@@ -39,9 +42,11 @@ import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
 import hudson.Util;
+import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.Run;
 import hudson.model.TaskListener;
+import hudson.scm.ChangeLogSet;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.util.ListBoxModel;
 import jenkins.tasks.SimpleBuildWrapper;
@@ -58,15 +63,18 @@ public class OALMWrapper extends SimpleBuildWrapper
 	
 	public final boolean printReply;
 	
+	public final boolean useCustomArtifactID;
+	
 	public final String artifactID;
 	
     public final List<OALMArtifactIdPattern> artifactIdPatterns;
 
     @DataBoundConstructor
-	public OALMWrapper(String siteName, boolean printReply, String artifactID, List<OALMArtifactIdPattern> artifactIdPatterns)
+	public OALMWrapper(String siteName, boolean printReply, boolean useCustomArtifactID, String artifactID, List<OALMArtifactIdPattern> artifactIdPatterns)
 	{
 		this.siteName = siteName;
 		this.printReply = printReply;
+		this.useCustomArtifactID = useCustomArtifactID;
 		this.artifactID = Util.fixEmptyAndTrim(artifactID);
 		this.artifactIdPatterns = artifactIdPatterns == null ? Collections.emptyList() : artifactIdPatterns;
 	}
@@ -78,7 +86,7 @@ public class OALMWrapper extends SimpleBuildWrapper
 	public void setUp(Context context, Run<?, ?> build, FilePath workspace, Launcher launcher, TaskListener listener,
 			EnvVars initialEnvironment) throws IOException, InterruptedException
 	{
-		listener.getLogger().println("Retrieve OpenALM artifact details...");
+		listener.getLogger().println("[OpenALM] Retrieve OpenALM artifact details...");
 		
 		OALMClient client = null;
 		
@@ -92,34 +100,30 @@ public class OALMWrapper extends SimpleBuildWrapper
 					context.env(PREFIX + "SITE_URL", site.getUrl());		
 					break;
 				}
-				catch (URISyntaxException e)
+				catch (URISyntaxException ex)
 				{
-					listener.error("URL of OpenALM site (" + siteName + ") incorrect.");
-					return;
+					LOGGER.log(Level.WARNING, "URL of OpenALM site (" + siteName + ") incorrect.", ex);
 				}
 			}
 		}
 		
 		if (client == null)
 		{
-			listener.error("Cannot determine OpenALM site (" + siteName + ").");
+			listener.error("[OpenALM] Cannot determine OpenALM site (" + siteName + ").");
 			return;
 		}
 		
-		if (artifactID == null)
+		String artifact = getArtifactIdForRequest(build, initialEnvironment);
+		
+		if (artifact == null)
 		{
-			listener.error("ArtifactID is empty");
+			listener.getLogger().println("[OpenALM] Cannot determine artifact ID.");
 			return;
 		}
-		
-		String artifact = initialEnvironment.expand(artifactID);
-
+			
 		try
 		{
-			for (OALMArtifactIdPattern pattern : artifactIdPatterns)
-			{
-				artifact = pattern.applyPattern(artifact);
-			}
+			listener.getLogger().println("[OpenALM] Artifact ID: " + artifact);
 
 			JSONObject json = client.retrieveArtifact(artifact);
 
@@ -134,16 +138,78 @@ public class OALMWrapper extends SimpleBuildWrapper
 					context.getEnv().getOrDefault(PREFIX + "ARTIFACT_URL", ""))
 			);
 			
-		}
-		catch (URISyntaxException | IOException | JSONException e)
-		{
-			listener.error("Retrieve artifact (" + artifact + ") details failed.");
-			listener.error(e.getLocalizedMessage());
+			listener.getLogger().println("[OpenALM] Environment variables are set:");
+			
+			for (Entry<String, String> env : oalmArtifact.getEnvVars().entrySet())
+			{
+				listener.getLogger().println(env.getKey() + "=" + env.getValue());
+			}
+
 			return;
 		}
+		catch (URISyntaxException | JSONException ex)
+		{
+			LOGGER.warning(ex.getMessage());
+		}
+		catch (IOException ex)
+		{
+			listener.getLogger().println("[OpenALM] " + ex.getMessage());
+		}
+
+		listener.error("[OpenALM] Retrieving artifact (" + artifact + ") details failed.");
 	}
 
-	private void injectEnvVars(Context context, OALMArtifact oalmArtifact)
+    /**
+     * Get artifact ID for http request. 
+     * Try to parse commit message or specified parameter and apply splitting patterns.
+     *
+     * @param build a build being run
+     * 
+	 * @param initialEnvironment the environment variables set at the outset
+     *
+     * @return String for http request or null
+     */
+	protected @CheckForNull String getArtifactIdForRequest(Run<?, ?> build, EnvVars initialEnvironment)
+	{
+		String artifact = null;
+		
+		if (useCustomArtifactID)
+		{
+			if (artifactID != null)
+			{
+				artifact = initialEnvironment.expand(artifactID);
+			}
+		}
+		else
+		{
+			for (ChangeLogSet.Entry entry : getChangeSet(build))
+			{
+				artifact = entry.getMsg();
+				if (!artifact.isEmpty())
+					break;
+			}
+		}
+		
+		if (artifact == null || artifact.isEmpty())
+			return null;
+		
+		for (OALMArtifactIdPattern pattern : artifactIdPatterns)
+		{
+			artifact = pattern.applyPattern(artifact);
+		}
+
+		return Util.fixEmpty(artifact.trim().split(" ")[0]);
+	}
+	
+    /**
+     * Inject environment variables related to artifact. 
+     *
+     * @param context a way of collecting modifications to the environment for nested steps
+     * 
+     * @param oalmArtifact received artifact details from site
+     * 
+     */
+	protected void injectEnvVars(Context context, OALMArtifact oalmArtifact)
 	{
 		Map<String, String> envMap = oalmArtifact.getEnvVars();
 		
@@ -153,13 +219,32 @@ public class OALMWrapper extends SimpleBuildWrapper
 		}
 	}
 
+    /**
+     * Get list of changes contained commit message. 
+     *
+     * @param build a build being run
+     * 
+     * @return set of scm changes for build
+     */
+    protected ChangeLogSet<? extends ChangeLogSet.Entry> getChangeSet(Run<?,?> build)
+    {
+        if (build instanceof AbstractBuild)
+        {
+            return ((AbstractBuild<?,?>) build).getChangeSet();
+        }
+        else
+        {
+            return ChangeLogSet.createEmpty(build);
+        }
+    }
+
 	@Extension
 	public static final class DescriptorImpl extends BuildWrapperDescriptor
 	{
 		@Override
 		public String getDisplayName()
 		{
-			return "Retrieve OALM artifact info";
+			return "Parse commit message and retrieve OpenALM artifact details";
 		}
 		
 		@Override

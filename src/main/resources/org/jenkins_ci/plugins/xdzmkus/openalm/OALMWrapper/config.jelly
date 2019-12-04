@@ -28,13 +28,18 @@ THE SOFTWARE.
         <f:select />
     </f:entry>
     
-    <f:entry title="${%Print site's output}" field="printReply">
+    <f:entry title="${%Print JSON data to console}" field="printReply">
 		<f:checkbox />
   	</f:entry>
 
-    <f:entry title="${%Artifact ID}" field="artifactID">
-		<f:textbox />
-  	</f:entry>
+	<f:advanced align="left"> 
+		<f:entry field="useCustomArtifactID" title="${%Use custom artifact ID}" >
+			<f:checkbox />
+	    </f:entry>
+	    <f:entry title="${%Artifact ID}" field="artifactID">
+			<f:textbox />
+	  	</f:entry>
+ 	</f:advanced> 
  
 	<f:entry title="${%Artifact ID patterns}">
 		<f:repeatableProperty field="artifactIdPatterns" header="Split according to pattern:" />

@@ -32,22 +32,17 @@ THE SOFTWARE.
         <st:include page="sidepanel.jelly" it="${build}"/>
         <l:main-panel>
             <h1>${%Build} #${build.number}</h1>
-            <h2>${%OpenALM Artifact}</h2>
-            <a href="${it.url}" target="_new">${it.url}</a>
             <j:choose>
                 <j:when test="${build.isBuilding()}">
                     ${%The job is building. Waiting for the end of the build to display environment variables}.
                 </j:when>
                 <j:otherwise>
-                    <j:choose>
          				<j:set var="envs" value="${it.artifact.getEnvVars()}"/>
-                        <j:when test="${envs.isEmpty()}">
-                            ${%No environment variables were been set}.
-                        </j:when>
-                        <j:otherwise>
-                            <t:propertyTable items="${envs}" />
-                        </j:otherwise>
-                    </j:choose>
+ 			            <h2>${%OpenALM Artifact}
+			            	<a href="${it.url}" target="_new">${it.url}</a>
+			            </h2>
+			            <h3>${it.artifact.title}</h3>
+                        <t:propertyTable items="${envs}" />
                 </j:otherwise>
             </j:choose>
         </l:main-panel>
