@@ -57,6 +57,7 @@ import org.jenkins_ci.plugins.xdzmkus.openalm.OALMGlobalConfiguration;
 import hudson.ProxyConfiguration;
 import hudson.Util;
 import hudson.security.ACL;
+import hudson.util.Secret;
 import jenkins.model.Jenkins;
 import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
@@ -195,7 +196,7 @@ public class OALMClient
 			{
 				credsProvider.setCredentials(
 						new AuthScope(oalmUrl.getHost(), oalmUrl.getPort()),
-						new UsernamePasswordCredentials(credentials.getUsername(), credentials.getPassword().getPlainText())
+						new UsernamePasswordCredentials(credentials.getUsername(), Secret.toString(credentials.getPassword()))
 				);
 			}
 		}

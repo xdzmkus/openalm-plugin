@@ -133,11 +133,12 @@ public class OALMWrapper extends SimpleBuildWrapper
 			
 			injectEnvVars(context, oalmArtifact);
 			
-			build.addAction(new OALMBuildData(oalmArtifact,
-					context.getEnv().getOrDefault(PREFIX + "SITE_URL", "") + 
-					context.getEnv().getOrDefault(PREFIX + "ARTIFACT_URL", ""))
-			);
-			
+			String artifactUrl = context.getEnv().getOrDefault(PREFIX + "SITE_URL", "") +
+								 context.getEnv().getOrDefault(PREFIX + "ARTIFACT_URL", "");
+
+			build.addAction(new OALMBuildData(oalmArtifact, artifactUrl));
+			build.addAction(new OALMBuildBadgeAction(artifactUrl, artifact));
+
 			listener.getLogger().println("[OpenALM] Environment variables are set:");
 			
 			for (Entry<String, String> env : oalmArtifact.getEnvVars().entrySet())
