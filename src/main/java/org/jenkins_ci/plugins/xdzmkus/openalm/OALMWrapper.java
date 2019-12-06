@@ -25,6 +25,7 @@ package org.jenkins_ci.plugins.xdzmkus.openalm;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.util.Collections;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -42,13 +43,13 @@ import hudson.Extension;
 import hudson.FilePath;
 import hudson.Launcher;
 import hudson.Util;
-import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.Run;
 import hudson.model.TaskListener;
 import hudson.scm.ChangeLogSet;
 import hudson.tasks.BuildWrapperDescriptor;
 import hudson.util.ListBoxModel;
+import jenkins.scm.RunWithSCM;
 import jenkins.tasks.SimpleBuildWrapper;
 import net.sf.json.JSONException;
 import net.sf.json.JSONObject;
@@ -183,11 +184,15 @@ public class OALMWrapper extends SimpleBuildWrapper
 		}
 		else
 		{
-			for (ChangeLogSet.Entry entry : getChangeSet(build))
+			ChangeLogSet<? extends ChangeLogSet.Entry> changeSets = getChangeSet(build);
+
+			if(!changeSets.isEmptySet())
 			{
+				// look for the last commit
+				Iterator<? extends ChangeLogSet.Entry> it = changeSets.iterator();
+				ChangeLogSet.Entry entry = it.next();
+				while (it.hasNext()) entry = it.next();
 				artifact = entry.getMsg();
-				if (!artifact.isEmpty())
-					break;
 			}
 		}
 		
@@ -229,14 +234,15 @@ public class OALMWrapper extends SimpleBuildWrapper
      */
     protected ChangeLogSet<? extends ChangeLogSet.Entry> getChangeSet(Run<?,?> build)
     {
-        if (build instanceof AbstractBuild)
+        if (build instanceof RunWithSCM<?,?>)
         {
-            return ((AbstractBuild<?,?>) build).getChangeSet();
+            for (ChangeLogSet<? extends ChangeLogSet.Entry> c : ((RunWithSCM<?,?>) build).getChangeSets())
+            {
+            	return c;
+            }
         }
-        else
-        {
-            return ChangeLogSet.createEmpty(build);
-        }
+
+        return ChangeLogSet.createEmpty(build);
     }
 
 	@Extension
