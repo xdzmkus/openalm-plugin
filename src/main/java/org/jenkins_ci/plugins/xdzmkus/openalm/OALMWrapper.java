@@ -203,8 +203,11 @@ public class OALMWrapper extends SimpleBuildWrapper
 		{
 			artifact = pattern.applyPattern(artifact);
 		}
-
-		return Util.fixEmpty(artifact.trim().split(" ")[0]);
+		
+		if (!artifact.matches("\\d+"))
+			return null;
+		
+		return artifact;
 	}
 	
     /**

@@ -63,22 +63,31 @@ public class OALMArtifact
     	if (json.has("submitted_by_user")) submitted_by_user = new OALMUser(json.getJSONObject("submitted_by_user"), this.prefix + "SUBMITTED_" );
     	if (json.has("status")) status = json.getString("status");
     	if (json.has("title")) title = json.getString("title");
-    	if (json.has("assignees"))
+    	if (json.has("values"))
     	{
-    		assignees = new ArrayList<OALMUser>();
-    		JSONArray users = json.getJSONArray("assignees");
-    		if (users.size() == 1)
-    		{
-    			assignees.add(new OALMUser(users.getJSONObject(0), this.prefix + "ASSIGNED_"));
-    		}
-    		else
-    		{
-	    		for (int i = 0; i < users.size(); i++)
-	    		{
-	    			assignees.add(new OALMUser(users.getJSONObject(0), this.prefix + i + "_ASSIGNED_"));
-	    		}
-    		}
-    	}
+    		JSONArray values = json.getJSONArray("values");
+   			for ( int i = 0; i < values.size(); i++)
+   			{
+   				JSONObject item = values.optJSONObject(i);
+   				if (item != null && item.containsValue("Assigned to"))
+   				{
+   		    		assignees = new ArrayList<OALMUser>();
+   					JSONArray users = item.getJSONArray("values");
+  		    		if (users.size() == 1)
+   		    		{
+   		    			assignees.add(new OALMUser(users.getJSONObject(0), this.prefix + "ASSIGNED_"));
+   		    		}
+   		    		else
+   		    		{
+   			    		for (int x = 0; x < users.size(); x++)
+   			    		{
+   			    			assignees.add(new OALMUser(users.getJSONObject(0), this.prefix + x + "_ASSIGNED_"));
+   			    		}
+   		    		}
+   					break;
+   				}
+   			}
+   		}
 	}
 
 	public @CheckForNull String getId()

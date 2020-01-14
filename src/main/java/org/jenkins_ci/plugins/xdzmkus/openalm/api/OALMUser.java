@@ -38,6 +38,7 @@ public class OALMUser
     private String real_name;
     private String display_name;    
     private String username;
+    private String email;
     
     private final String prefix;
     
@@ -53,6 +54,7 @@ public class OALMUser
     	if (json.has("real_name")) real_name = json.getString("real_name");
     	if (json.has("display_name")) display_name = json.getString("display_name");
     	if (json.has("username")) username = json.getString("username");
+    	if (json.has("email")) email = json.getString("email");
 	}
     
     public @CheckForNull String getId()
@@ -115,6 +117,22 @@ public class OALMUser
 		this.username = username;
 	}
 
+	/**
+	 * @return the email
+	 */
+	public String getEmail()
+	{
+		return email;
+	}
+
+	/**
+	 * @param email the email to set
+	 */
+	public void setEmail(String email)
+	{
+		this.email = email;
+	}
+
 	public Map<String, String> getEnvVars()
 	{
 		HashMap<String, String> envMap = new HashMap<String, String>();
@@ -123,6 +141,7 @@ public class OALMUser
 		envMap.put(prefix + "REALNAME", Util.fixNull(getReal_name()));		
 		envMap.put(prefix + "DISPLAYNAME", Util.fixNull(getDisplay_name()));		
 		envMap.put(prefix + "USERNAME", Util.fixNull(getUsername()));		
+		envMap.put(prefix + "EMAIL", Util.fixNull(getEmail()));		
 
 		return envMap;
 	}
